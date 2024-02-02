@@ -1,0 +1,145 @@
+---
+title: "Weather data cleaning 2"
+author: "Emma Helen Berg"
+date: "2024-01-29"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Prepare workspace and import data 
+```{r *Libraries and directory}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(writexl)
+library(suncalc)
+
+getwd()
+
+#[1] "C:/Users/emmah/OneDrive/Dokumenter/Master/Coding/Master"
+
+```
+
+
+#### Import, List.files, Merge, 
+```{r *CSV Multiple Read Smush Script}
+
+# Specify directories
+input  <-"C:/Users/emmah/OneDrive/Downloads/Master/Data/Weather data/Raw data/Raw data cropped" # folder where csv files are all in 
+output <-"C:/Users/emmah/OneDrive/Downloads/Master/Data/Weather data/Weather data processed" # where you want to save your data
+name   <-"WeatherDataProcessed.csv"
+
+#To set the path to your csv files
+setwd("C:/Users/emmah/OneDrive/Downloads/Master/Data/Weather data/Raw data/Raw data cropped")
+getwd()
+
+#To grab and list all your csv files
+#my_files <- list.files(path=path, pattern="*.txt")
+temper <- list.files(path = input, pattern = "Temperatur.csv", all.files = TRUE, recursive = FALSE)
+precip <- list.files(path = input, pattern = "Nedbør.csv", all.files = TRUE, recursive = FALSE)
+
+
+# setwd("C:/Users/jhell/Documents/Bats&Birds_EcoForest/Ecoforest Sites&Data/WeatherData") #folder where all .csv files are
+
+#To read all your csv files and create a list with all these elements
+#my_files_data <- lapply(my_files, read.csv)
+## temper_data <- lapply(temper, read.csv) # creates only one column - need to make a function for read.csv(skip= 1, header = TRUE)
+#convert afterwards instead of nesting them with reader 1st (middle), then convert to date, then filter
+
+    csvreader <- function(x){
+      read.csv(x, sep= ";", skip = 1, header = TRUE)
+    }
+
+# Testing function on a .csv file
+#test1 <- csvreader("C:/Users/emmah/OneDrive/Downloads/Master/Data/Weather data/Raw data/Raw data cropped/EF2_CC_Nedbør.csv") # same obs and rows!
+#test1$Date <- as.POSIXct(test1$Date, format="%d.%m.%Y %H:%M:%S") 
+#test1 <-  test1 %>% filter(Date >= "2023-06-05 00:00:00" & Date < "2023-07-24 00:00:00")
+
+    
+temper_data <- lapply(temper, csvreader) # Fixed - still only giving one column - switch to all.files = TRUE to give filepath
+precip_data <- lapply(precip, csvreader)
+
+
+#To add the name of each csv in the list
+names(temper_data) <- gsub("//.csv$", "", temper)
+names(precip_data) <- gsub("//.csv$", "", precip)
+
+#To create one single dataframe with all single dataframes
+big_temper<- rbindlist(temper_data, fill = TRUE, idcol = "Filename") # FIXED 244910 obs - need to have column for filename -- use idcol = "desiredcolname" to retain names from list
+big_precip<- rbindlist(precip_data, fill = TRUE, idcol = "Filename")
+
+# Format and trim
+str(big_temper)
+big_temper$Date <- as.POSIXct(big_temper$Date, format="%d.%m.%Y %H:%M:%S") 
+big_temper <-  big_temper %>% filter(Date >= "2023-06-05 00:00:00" & Date < "2023-07-24 00:00:00") # 490 obs of 3 vars
+
+big_precip$Date <- as.POSIXct(big_precip$Date, format="%d.%m.%Y %H:%M:%S") 
+big_precip <-  big_precip %>% filter(Date >= "2023-06-05 00:00:00" & Date < "2023-07-24 00:00:00") # 490 obs of 3 vars
+
+# Need Site or else the filenames will not join
+big_temper <- big_temper %>% 
+  mutate(Site = paste0(word(Filename, 1, sep = '_'), "-", (word(Filename, 2, sep = '_'))
+  ))
+
+big_precip <- big_precip %>% 
+  mutate(Site = paste0(word(Filename, 1, sep = '_'), "-", (word(Filename, 2, sep = '_'))
+  ))
+
+# Now join by date and filename to add precip to temp
+join.temper.precip. <- right_join(big_temper, big_precip, by = c("Date", "Site")) # success
+
+# Trim it down
+temper.precip.final <- join.temper.precip. %>% 
+  select(Site, Date, tm.Celcius., rr.mm.)
+
+#To clean the names of the variables (if needed)
+# names(big_data) <- sub("Curv.", "Curv", names(big_data))
+colnames(temper.precip.final)
+names(temper.precip.final) <- sub("tm.Celcius.", "Temperature_C", names(temper.precip.final))
+names(temper.precip.final) <- sub("rr.mm.", "Precipitation_mm", names(temper.precip.final))
+
+table(temper.precip.final$Site) # 49 obs for all Sites, 10 obs for every date
+summary(temper.precip.final$Temperature_C)
+
+
+#To export the big dataframe to csv
+setwd(output)
+write.csv(temper.precip.final, file="WeatherData_EF2_6.csv", na="NA")
+
+```
+
+
+```{r Combining EF2-6 with EF-7-12}
+setwd(output)
+
+# Loading in the two files I want to combine
+EF2_6 <- read.csv("WeatherData_EF2_6.csv", header = TRUE)
+EF7_12 <- read.csv("WeatherData_EF7_12.csv", header = TRUE)
+
+EF2_12 <- rbind(EF2_6, EF7_12)
+EF2_12 <- EF2_12[ , -1]
+
+write.csv(EF2_12, file="WeatherData_EF2_12.csv", na="NA")
+
+```
+

@@ -1,0 +1,145 @@
+---
+title: "Weather data exploration"
+author: "Emma Helen Berg"
+date: "2024-01-22"
+output: html_document
+---
+
+```{r}
+library(readr)
+
+EF2_CC_pre <- read.csv("Data/EF2_CC_Nedbør.csv")
+EF2_CC_pre
+
+EF2_CC_pre$Date = as.Date(EF2_CC_pre$Date, format = "%d.%m.%y")
+
+
+dim(EF2_CC_pre)
+
+
+mean(EF2_CC_pre$rr.mm., na.rm = TRUE)
+max(EF2_CC_pre$rr.mm., na.rm = TRUE)
+
+EF2_CC_temp <- read.csv("Data/EF2_CC_Temperatur.csv")
+EF2_CC_temp
+
+EF2_CC_temp$Date = as.Date(EF2_CC_temp$Date, format = "%d.%m.%y")
+
+```
+
+### Inspecting the data
+
+```{r head and tail}
+head(EF2_CC_pre) #show the first 6 rows
+tail(EF2_CC_pre) #show the last 6 rows
+```
+
+```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+
+#install.packages("dplyr")
+library(dplyr)
+
+EF2_CC_pre %>% ggplot(aes(x = Date, y = rr.mm.)) +
+  geom_col(fill = "deeppink2") +
+  ggtitle("Precipitation at EF2 clear-cut site") +
+  xlab("Date") +
+  ylab("Precipitation (mm)") +
+  theme(axis.text.x = element_text(size = 10), panel.background = element_rect(fill = "lavenderblush"))
+# Plot shows an increase in precipitation in later in the season. No precipitation in the first 10 days. 
+
+```
+
+```{r}
+EF2_CC_pre %>% ggplot(aes(x = rr.mm.)) +
+  geom_histogram(fill = "darkmagenta") +
+  ggtitle("Precipitation at EF2 clear-cut site") +
+  xlab("Precipitation (mm)") +
+  theme(axis.text.x = element_text(size = 10), panel.background = element_rect(fill = "lavender"))
+# Plot shows that there were mostly days with no precipitation in the study period.
+
+```
+
+```{r}
+EF2_CC_temp %>% ggplot(aes(x = Date, y = tm.Celcius.)) +
+  geom_point(color = "deeppink2", size = 3) +
+  geom_line(color = "deeppink", alpha = 0.3, size = 1.5) +
+  ggtitle("Temperature at EF2 clear-cut site") +
+  xlab("Date") +
+  ylab("Temperature (C)") +
+  theme(panel.background = element_rect(fill = "lavenderblush"))
+# Temperature varied greatly throughout the season. Colder towards the end. 
+```
+
+```{r import full weather dataset}
+weather <- read_csv("Data/WeatherData_EF2_12.csv")
+View(weather)
+```
+
+```{r}
+weather %>% ggplot(aes(x = Date, y = Precipitation_mm)) +
+  geom_col(fill = "deepskyblue1") +
+  ggtitle("Precipitation at all sites") +
+  xlab("Date") +
+  ylab("Precipitation (mm)") +
+  theme(axis.text.x = element_text(size = 10), panel.background = element_rect(fill = "azure2"))
+
+weather %>% ggplot(aes(x = Date, y = Precipitation_mm)) +
+  geom_col(fill = "deeppink2") +
+  ggtitle("Precipitation at all sites") +
+  xlab("Date") +
+  ylab("Precipitation (mm)") +
+  theme(axis.text.x = element_text(size = 10), panel.background = element_rect(fill = "lavenderblush")) +
+  facet_wrap(vars(Site))
+
+
+weather %>% ggplot(aes(x = Date, y = Temperature_C)) +
+  geom_point(color = "darkmagenta") +
+  geom_line(color = "darkmagenta", alpha = 0.3, size = 1.5) +
+  ggtitle("Temperature at all sites") +
+  xlab("Date") +
+  ylab("Temperature (C)") +
+  theme(panel.background = element_rect(fill = "lavender"))+
+  facet_wrap(vars(Site))
+```
+
+```{r}
+weather$SiteType <- paste(weather$Site)
+weather$SiteType <- sub(".*[-]", "", weather$SiteType)
+```
+
+```{r}
+weather %>% ggplot(aes(x = Date, y = Precipitation_mm)) +
+  geom_col(fill = "deeppink2") +
+  xlab("Date") +
+  ylab("Precipitation (mm)") +
+  theme(axis.text.x = element_text(size = 10), panel.background = element_rect(fill = "lavenderblush")) +
+  facet_wrap(vars(SiteType))
+
+weather %>% ggplot(aes(x = Date, y = Temperature_C)) +
+  geom_point(color = "purple") +
+  geom_line(color = "purple", alpha = 0.3, size = 1.5) +
+  ggtitle("Temperature at all sites") +
+  xlab("Date") +
+  ylab("Temperature (C)") +
+  theme(panel.background = element_rect(fill = "lavender"))+
+  facet_wrap(vars(SiteType))
+
+weather %>% ggplot(aes(x = Date, y = Temperature_C, color = SiteType)) +
+  geom_point() +
+  geom_line() +
+  ggtitle("Temperature at all sites") +
+  xlab("Date") +
+  ylab("Temperature (C)") +
+  labs(color = "Site type")
+
+weather %>% ggplot(aes(x = Date, y = Precipitation_mm, color = SiteType)) +
+  geom_point() +
+  geom_line() +
+  ggtitle("Precipitation at all sites") +
+  xlab("Date") +
+  ylab("Precipitation (mm)") +
+  labs(color = "Site type")
+```
+

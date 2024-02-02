@@ -1,0 +1,138 @@
+---
+title: "Cleaning manual acoustic data"
+author: "Emma Helen Berg"
+date: "2024-02-01"
+output: html_document
+---
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Prepare workspace and import data 
+```{r Libraries}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(writexl)
+library(suncalc)
+```
+
+
+```{r Working directory}
+input <- "C:/Users/emmah/OneDrive/Downloads/Master/Data/Manual acoustic data/ID csv processed"
+output <- "C:/Users/emmah/OneDrive/Downloads/Master/Data/Manual acoustic data/ID csv processed"
+
+setwd(input)
+getwd()
+```
+
+
+```{r Load csv}
+big_ID <- read.csv("combinedID.csv")
+```
+
+
+```{r Cleaning}
+big_ID$AUTO.ID. <- as.factor(big_ID$AUTO.ID.)
+
+# Identifying noise
+big_ID1 <- big_ID %>% filter(AUTO.ID. != "Noise")
+
+
+big_ID1$m_id <- as.factor(big_ID1$MANUAL.ID) 
+summary(big_ID1$m_id)
+
+# Removing SR1 category 
+big_ID$MANUAL.ID <- gsub("_SR1", "", big_ID$MANUAL.ID)
+
+# Removing NotBat 
+value_count <- sum(big_ID$MANUAL.ID == 'NotBat') # 134 NotBat
+
+big_ID$MANUAL.ID
+big_ID <- big_ID[big_ID$MANUAL.ID != 'NotBat', ]
+
+summary(big_ID) # Length: 8769 (8903 - 134) - correct
+
+
+
+# Trim down to just essential columns
+IDtest <- big_ID %>% 
+  select(Filename, INDIR, OUTDIR, IN.FILE, DURATION, 
+         DATE, TIME, HOUR, 
+         DATE.12, TIME.12, HOUR.12, 
+         AUTO.ID., PULSES, MATCH.RATIO, 
+         MANUAL.ID)
+
+summary(IDtest)
+# Way too many NAs (4980), all noIDs from from noID-CC and noID-NN are categorized as NA
+
+# Change NAs to NoID
+IDtest$AUTO.ID.[is.na(IDtest$AUTO.ID.)] <- "NoID"
+summary(IDtest)
+
+
+```
+
+
+```{r Parse behavior and multiple species}
+# Split recordings with multiple species into separate rows
+IDtest1 <- IDtest %>% separate_rows(MANUAL.ID, sep = "_")
+
+
+# Create separate behavior column, remove behavior tags from manuals ids
+IDtest2 <- IDtest1 %>%
+  mutate(MANUAL.ID = as.character(MANUAL.ID)) %>% 
+  mutate(behavior = case_when(
+    str_detect(MANUAL.ID, ".B") ~ "Feeding",
+    str_detect(MANUAL.ID, ".S") ~ "Social",
+    str_detect(MANUAL.ID,".B.S") ~ "Feeding",
+    TRUE ~ "Commuting"
+  )) 
+
+# Removing behavior from manual ID column
+IDtest2$MANUAL.ID <- gsub(".B", "", IDtest2$MANUAL.ID )
+IDtest2$MANUAL.ID <- gsub(".S", "", IDtest2$MANUAL.ID )
+
+# Transforming manual IDs to factor
+IDtest2$MANUAL.ID <- as.factor(IDtest2$MANUAL.ID )
+summary(IDtest2$MANUAL.ID)
+
+# Transforming behavior to factor
+IDtest2$behavior <- as.factor(IDtest2$behavior)
+summary(IDtest2$behavior)
+
+
+# Saving csv
+setwd(output)
+write.csv(IDtest2, file="cleanedID.csv", na="NA")
+```
+
+
+```{r Site}
+
+```
+
+
+```{r Exploratory graphs}
+library(ggplot2)
+
+IDtest2 %>% ggplot() +
+  geom_point(aes(x = DATE, y = MANUAL.ID, color = behavior))
+```
+

@@ -1,0 +1,80 @@
+---
+title: "Combining manual acoustic data"
+author: "Emma Helen Berg"
+date: "2024-01-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Prepare workspace and import data 
+```{r Libraries}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(writexl)
+library(suncalc)
+```
+
+
+```{r Working directory}
+input <- "C:/Users/emmah/OneDrive/Downloads/Master/Data/Manual acoustic data/ID csv"
+output <- "C:/Users/emmah/OneDrive/Downloads/Master/Data/Manual acoustic data/ID csv processed"
+
+setwd(input)
+getwd()
+```
+
+
+```{r}
+# Make csvs into lists
+IDs <- list.files(path = input, pattern = "id.csv")
+
+# FF1<- list.files(path=input, pattern="id.csv", recursive = TRUE) # FF1 is site, species code (auto ID) in my case
+
+# Create function to read csv
+csvreader <- function(x){read.csv(x, sep = ",", header = TRUE)}
+
+# Reading csvs
+ID_data <- lapply(IDs, csvreader)
+
+
+# Adding names of the csv to the IDs list
+names(ID_data) <- gsub("//.csv$", "", IDs)
+
+
+# Create single dataframe
+big_ID_data <- rbindlist(ID_data, fill = TRUE, idcol = "Filename")
+
+# Remove file type in rows
+big_ID_data$Filename <- gsub("_id.csv", "", big_ID_data$Filename)
+
+setwd(output)
+write.csv(big_ID_data, file="combinedID.csv", na="NA")
+
+```
+
+
+next step: 
+1. all data compiled
+      - add red list category?
+2. aggregate by night
+3. inserting zeroes
+4. data exploration
